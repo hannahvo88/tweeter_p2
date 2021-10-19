@@ -1,8 +1,9 @@
+import json
+import secrets
 
 import mariadb
 from flask import Response, request, jsonify
-import json
-import secrets
+
 import dbcreds
 from apptoken import xApiToken
 from routes import app
@@ -11,7 +12,7 @@ from routes import app
 def required_params(required):
     json = request.get_json()
     missing = [r for r in required.keys()
-            if r not in json]
+        if r not in json]
     print(len(missing))
     if len(missing) > 0:
         return {
@@ -36,13 +37,12 @@ def api_users():
             database=dbcreds.database
         )
         cursor = conn.cursor()
-
         if xApiToken().checkHasToken():
             if request.method == 'GET':
                 rq = request.args
-                print(rq)
-                if len(rq.keys()) == 0:
-                    cursor.execute("SELECT *FROM user")
+            
+                if "userId" not in rq:
+                    cursor.execute("SELECT id as userId,email,username FROM user")
 
                     # this will extract row headers
                     row_headers = [x[0] for x in cursor.description]
@@ -52,13 +52,13 @@ def api_users():
                         json_data.append(dict(zip(row_headers, result)))
 
                     res = json_data
-                elif len(rq.keys()) == 1:
-                    print('here')
+                elif "userId" in rq:
+                
                     if rq.get('userId').isdigit():
                         cursor.execute("SELECT EXISTS(SELECT * FROM user WHERE id=?)", [rq.get('userId')])
                         check_id_valid = cursor.fetchone()[0]
                         if check_id_valid == 1:
-                            cursor.execute(f"SELECT * FROM user WHERE id='{rq.get('userId')}'")
+                            cursor.execute(f"SELECT id as userId,email,username FROM user WHERE id='{rq.get('userId')}'")
 
                             # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
@@ -70,25 +70,25 @@ def api_users():
                             res = json_data
                         else:
                             return jsonify({
-                                'status': 400,
                                 'message': "User id does not found"
-                            })
+                            }), 404
                     else:
                         return jsonify({
-                            'status': 400,
                             'message': "Invalid Request"
-                        })
+                        }), 400
                 else:
                     return jsonify({
-                        'status': 400,
                         'message': "Invalid Request"
-                    })
+                    }), 400
 
                 return jsonify(res), 200
             elif request.method == 'POST':
                 data = request.json
-
-                print(data)
+                email = data.get("email")
+                username = data.get("username")
+                password = data.get("password")
+                bio = data.get("bio")
+                birthdate = data.get("birthdate")
 
                 validated = required_params({
                     "email": "",
@@ -100,43 +100,41 @@ def api_users():
 
                 if not validated['status']:
                     return jsonify({
-                        "status": 400,
+                        "status": "error",
                         "message": "Request JSON is missing some required params",
                         "missing": validated['data']
                     })
                 else:
 
-                    # check email exists 
-                    cursor.execute("SELECT EXISTS(SELECT email FROM user WHERE email=?)", [data["email"]])
+                    # check email exists
+                    cursor.execute("SELECT EXISTS(SELECT email FROM user WHERE email=?)", [email])
                     check_email_exists = cursor.fetchone()[0]
 
                     if check_email_exists == 1:
                         return jsonify({
-                            'status': 400,
                             'message': "Email already exists"
-                        })
+                        }), 400
 
-                    # check username exists 
-                    cursor.execute("SELECT EXISTS(SELECT username FROM user WHERE username=?)", [data["username"]])
+                    # check username exists
+                    cursor.execute("SELECT EXISTS(SELECT username FROM user WHERE username=?)", [username])
                     check_username_exists = cursor.fetchone()[0]
 
                     if check_username_exists == 1:
                         return jsonify({
-                            'status': 400,
                             'message': "Username already exists"
-                        })
+                        }), 400
 
                     # insert data
-                    cursor.execute("INSERT INTO user(email, username, password, bio, birthdate) VALUES(?,?,?,?,?)", [data["email"], data["username"],data["password"], data["bio"],data["birthdate"]])
+                    cursor.execute("INSERT INTO user(email, username, password, bio, birthdate), VALUES(?,?,?,?,?)", [email], [username], [password], [bio], [birthdate])
                     conn.commit()
-                    cursor.execute("SELECT id FROM user WHERE email=?", [data["email"]])
+                    cursor.execute("SELECT id FROM user WHERE email=?", [email])
                     user_id = cursor.fetchone()[0]
 
                     login_token = secrets.token_hex(16)
                     cursor.execute("INSERT INTO user_session(user_id, login_token) VALUES(?,?)", [user_id, login_token])
                     conn.commit()
 
-                    cursor.execute("SELECT id, email, username, bio, birthdate FROM user WHERE id=?",[user_id])
+                    cursor.execute("SELECT id, email, username, bio, birthdate FROM user WHERE id=?", [user_id])
                     user = cursor.fetchone()
 
                     resp = {
@@ -149,10 +147,16 @@ def api_users():
                     }
 
                     return jsonify(resp), 200
+
             elif request.method == 'PATCH':
 
                 data = request.json
                 token = data.get("loginToken")
+                email = data.get("email")
+                username = data.get("username")
+                bio = data.get("bio")
+                birthdate = data.get("birthdate")
+                
                 if token != None:
 
                     cursor.execute("SELECT EXISTS(SELECT login_token FROM user_session WHERE login_token=?)", [token])
@@ -166,84 +170,76 @@ def api_users():
 
                         if "email" in data:
                             # check email exists 
-                            cursor.execute("SELECT EXISTS(SELECT email FROM user WHERE email=?)", [data["email"]])
-                            email_exists = cursor.fetchone()[0]
+                            cursor.execute("SELECT EXISTS(SELECT email FROM user WHERE email=?)", [email])
+                            check_email_exists = cursor.fetchone()[0]
 
-                            if email_exists == 1:
+                            if check_email_exists == 1:
                                 return jsonify({
-                                    'status': 400,
                                     'message': "Email already exists"
-                                })
+                                }), 400
 
-                            # runs update if all email checks pass
-                            cursor.execute("UPDATE user  SET email=? WHERE id=?", [data["email"], currentUserId])
+                            # runs update q
+                            cursor.execute("UPDATE user  SET email=? WHERE id=?", [email, currentUserId])
                             conn.commit()
 
                         elif "username" in data:
+                            # check username exists 
+                            cursor.execute("SELECT EXISTS(SELECT username FROM user WHERE username=?)", [username])
+                            check_username_exists = cursor.fetchone()[0]
 
-                            # check ALL INFORMATION IF exists
-                            cursor.execute("SELECT EXISTS(SELECT username FROM user WHERE username=?)", [data["username"]])
-                            username_exists = cursor.fetchone()[0]
-
-                            if username_exists == 1:
+                            if check_username_exists == 1:
                                 return jsonify({
-                                    'status': 400,
                                     'message': "username already exists"
-                                })
-                            cursor.execute("UPDATE user  SET username=? WHERE id=?",[data["username"], currentUserId])
+                                }), 400
+                            cursor.execute("UPDATE user  SET username=? WHERE id=?",[username, currentUserId])
                             conn.commit()
 
                         elif "bio" in data:
-                            cursor.execute("UPDATE user  SET bio=? WHERE id=?",[data["bio"], currentUserId])
+                            cursor.execute("UPDATE user  SET bio=? WHERE id=?",[bio, currentUserId])
                             conn.commit()
                         elif "birthdate" in data:
-                            cursor.execute("UPDATE user  SET birthdate=? WHERE id=?",[data["birthdate"], currentUserId])
+                            cursor.execute("UPDATE user  SET birthdate=? WHERE id=?",[birthdate, currentUserId])
                             conn.commit()
+                    
 
-                        cursor.execute(
-                            "SELECT id as userId, email, username, bio, birthdate FROM user  WHERE id=?",[currentUserId])
-                        updated_user = cursor.fetchall()
+                        cursor.execute("SELECT id as userId, email, username, bio, birthdate FROM user  WHERE ""id=?", [currentUserId])
+                        updated = cursor.fetchall()
                         json_data = []
                         row_headers = [x[0] for x in cursor.description]
 
-                        for result in updated_user :
+                        for result in updated:
                             json_data.append(dict(zip(row_headers, result)))
                         return jsonify(json_data[0]), 200
                     else:
                         return jsonify({
-                            'status': 400,
                             'message': 'invalid token'
-                        })
+                        }), 400
 
                 else:
                     return jsonify({
-                        'status': 400,
                         'message': 'token required'
-                    })
+                    }), 400
             elif request.method == 'DELETE':
                 data = request.json
                 token = data.get("loginToken")
+                password = data.get("password")
 
-                if "password" not in data:
+                if "password" != data:
                     return jsonify({
-                        'status': 400,
                         'message': 'Password is required'
-                    })
+                    }),400
                 if token != None:
                     cursor.execute("SELECT EXISTS(SELECT login_token FROM user_session WHERE login_token=?)", [token])
                     token_valid = cursor.fetchone()[0]
 
                     if token_valid == 1:
-                        cursor.execute("SELECT EXISTS(SELECT password FROM user WHERE password=?)", [data['password']])
+                        cursor.execute("SELECT EXISTS(SELECT password FROM user WHERE password=?)", [password])
                         password_valid = cursor.fetchone()[0]
                         if password_valid == 1:
 
-                            print(token)
                             cursor.execute("SET FOREIGN_KEY_CHECKS=OFF;")
                             cursor.execute("SELECT user_id FROM user_session WHERE login_token=?", [token])
                             userId = cursor.fetchone()[0]
-
-                            print(userId)
 
                             cursor.execute("DELETE FROM user_session WHERE login_token=?", [token])
                             conn.commit()
@@ -251,25 +247,25 @@ def api_users():
                             conn.commit()
 
                             cursor.execute("SET FOREIGN_KEY_CHECKS=ON;")
-                            return jsonify({}), 200
+                            return jsonify({
+
+                            }), 200
                         else:
                             return jsonify({
-                                'status': 400,
                                 'message': 'password is not valid'
-                            })
+                            }),400
                     else:
                         return jsonify({
-                            'status': 400,
                             'message': 'Token is not valid'
-                        })
+                        }),400
                 else:
                     return jsonify({
-                        'status': 400,
+                        
                         'message': 'Token is required'
-                    })
+                    }),400
         else:
             return Response("X-Api-Key not found", mimetype='application/json', status=400)
-            
+
     except mariadb.OperationalError:
         print("There seems to be a connection issue!")
     except mariadb.ProgrammingError:
@@ -301,5 +297,3 @@ def use_data(data):
         "birthdate": data[4],
     }
     return user
-
-

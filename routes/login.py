@@ -32,7 +32,7 @@ def login_handler():
 
                         if email_valid == 1:
                             cursor.execute("SELECT id AS userId,email,username,bio,birthdate FROM user ""WHERE email=? AND password=?", [email, password])
-                            # serialize results into JSON
+                            # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
                             rv = cursor.fetchall()
                             if len(rv) > 0:
@@ -45,21 +45,22 @@ def login_handler():
                                 login_token = secrets.token_hex(16)
 
                                 res['loginToken'] = login_token
-
-                                cursor.execute("INSERT INTO user_session(user_id, login_token) VALUES(?,?)",[res['userId'], login_token])
+                                user_Id = res['userId']
+                                cursor.execute("INSERT INTO user_session(user_id, login_token) VALUES(?,?)",[user_Id, login_token])
                                 conn.commit()
 
                                 return jsonify(res), 200
                             else:
                                 return jsonify({
-                                    'status': 400,
+                            
                                     'message': "email not found"
-                                })
+                                }),400
                         else:
                             return jsonify({
-                                'status': 400,
+
                                 'message': "email/username not found"
-                            })
+                            }),400
+
                     elif {"username", "password"} <= data.keys():
                         username = data.get("username")
                         password = data.get("password")
@@ -67,8 +68,9 @@ def login_handler():
                         username_valid = cursor.fetchone()[0]
 
                         if username_valid == 1:
-                            cursor.execute("SELECT id as userId,email,username,bio,birthdate,imageUrl,bannerUrl FROM user ""WHERE username=? AND password=?", [username, password])
-                            # serialize results into JSON
+                            cursor.execute("SELECT id as userId,email,username,bio,birthdate FROM user ""WHERE username=? AND password=?", [username, password])
+                            
+                            # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
                             rv = cursor.fetchall()
                             if len(rv) > 0:
@@ -81,51 +83,52 @@ def login_handler():
                                 login_token = secrets.token_hex(16)
 
                                 res['loginToken'] = login_token
+                                user_Id = res['userId']
 
-                                cursor.execute("INSERT INTO user_session(user_id, login_token) VALUES(?,?)",[res['userId'], login_token])
+                                cursor.execute("INSERT INTO user_session(user_id, login_token) VALUES(?,?)",[user_Id, login_token])
                                 conn.commit()
 
                                 return jsonify(res), 200
                             else:
                                 return jsonify({
-                                    'status': 400,
                                     'message': "username not found"
-                                })
+                                }),400
                         else:
                             return jsonify({
-                                'status': 400,
+
                                 'message': "username not found"
-                            })
+                            }),400
                     else:
-                        if "username" not in data and "email" not in data:
+                        if "username" != data and "email" != data:
                             return jsonify({
-                                'status': 400,
+
                                 'message': "email/username required"
-                            })
-                        elif "password" not in data:
+                            }),400
+                        elif "password" != data:
                             return jsonify({
-                                'status': 400,
+                                
                                 'message': "Password required"
-                            })
+                            }),400
                 else:
                     return jsonify({
-                        'status': 400,
                         'message': "Request data invalid"
-                    })
+                    }),400
+
             elif request.method == "DELETE":
                 data = request.json
+                loginToken = data.get("loginToken")
                 if "loginToken" in data:
-                    cursor.execute("SELECT EXISTS(SELECT id FROM user_session WHERE login_token=?)", [data['loginToken']])
+                    cursor.execute("SELECT EXISTS(SELECT id FROM user_session WHERE login_token=?)", [loginToken])
                     token_valid = cursor.fetchone()[0]
-                    print(token_valid)
+                    
                     if token_valid == 1:
-                        cursor.execute("DELETE FROM user_session WHERE login_token=?", [data['loginToken']])
+                        cursor.execute("DELETE FROM user_session WHERE login_token=?", [loginToken])
                         conn.commit()
                         return jsonify({}), 200
             else:
                 return jsonify({
                     "message": request.method + " Method not support"
-                })
+                }),400
         else:
             return Response("X-Api-Key not found", mimetype='application/json', status=400)
     

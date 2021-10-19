@@ -21,7 +21,7 @@ class xApiToken:
         if request.headers.getlist('X-Api-Key'):
             headerToken = request.headers['X-Api-Key']
 
-            self.cursor.execute("SELECT EXISTS(SELECT id from token WHERE token=?)", [headerToken])
+            self.cursor.execute("SELECT EXISTS(SELECT id FROM token WHERE token=?)", [headerToken])
             checkTweet = self.cursor.fetchone()[0]
             return checkTweet == 1
         else:
@@ -37,7 +37,7 @@ class xApiToken:
         return key
 
     def listToken(self):
-        self.cursor.execute("SELECT token from token where status=1")
+        self.cursor.execute("SELECT token FROM token WHERE status=1")
         rv = self.cursor.fetchall()
         for result in rv:
             print(result[0])
