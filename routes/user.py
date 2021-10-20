@@ -71,7 +71,7 @@ def api_users():
                         else:
                             return jsonify({
                                 'message': "User id does not found"
-                            }), 404
+                            }), 400
                     else:
                         return jsonify({
                             'message': "Invalid Request"

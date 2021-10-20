@@ -1,4 +1,4 @@
-import secrets
+
 from datetime import datetime
 
 import mariadb
@@ -10,7 +10,7 @@ from routes import app
 
 
 @app.route('/api/tweets', methods=['GET', 'POST', 'PATCH', 'DELETE'])
-def tweetsAction():
+def tweets_handler():
     try:
         conn = mariadb.connect(
             user=dbcreds.user,
@@ -23,7 +23,7 @@ def tweetsAction():
         if xApiToken().checkHasToken():
             if request.method == "GET":
                 data = request.json
-                if data is not None and "userId" in data:
+                if data != None and "userId" in data:
                     userID = data.get("userId")
 
                     # checks if integer
@@ -34,7 +34,7 @@ def tweetsAction():
                     checkUser = cursor.fetchone()[0]
 
                     if checkUser == 1:
-                        cursor.execute("SELECT tweet.id AS tweetId, user_id AS userId, username, content, created_at FROM tweet INNER JOIN user ON tweet.user_id = user.id where tweet.user_id=?",[userID])
+                        cursor.execute("SELECT tweet.id, user_id, username, content, created_at FROM tweet INNER JOIN user ON tweet.user_id = user.id where tweet.user_id=?",[userID])
                         row_headers = [x[0] for x in cursor.description]
                         rv = cursor.fetchall()
                         json_data = []
@@ -46,7 +46,7 @@ def tweetsAction():
                             'message': "User not found"
                         }), 404
                 else:
-                    cursor.execute("SELECT tweet.id AS tweetId, user_id AS userId, username, content, created_at FROM tweet INNER JOIN user ON tweet.user_id = user.id")
+                    cursor.execute("SELECT tweet.id, user_id, username, content, created_at FROM tweet INNER JOIN user ON tweet.user_id = user.id")
                     row_headers = [x[0] for x in cursor.description]
                     rv = cursor.fetchall()
                     json_data = []
@@ -59,27 +59,20 @@ def tweetsAction():
 
                 if len(data.keys()) == 2:
                     if {"loginToken", "content"} <= data.keys():
-                        tweet = data
+                        data
                     else:
                         return jsonify({
                             'message': "Incorrect keys submitted.",
                         }), 400
 
-                elif len(data.keys()) == 2:
-                    if {"loginToken", "content"} <= data.keys():
-                        tweet = data
-                    else:
-                        return jsonify({
-                            'message': "Incorrect keys submitted.",
-                        }), 400
                 else:
                     return jsonify({
                         'message': "Incorrect keys submitted.",
                     }), 400
 
-                token = tweet["loginToken"]
-                tweet_content = tweet["content"]
-                if token is not None:
+                token = data.get("loginToken")
+                tweet_content = data.get("content")
+                if token != None:
                     cursor.execute("SELECT EXISTS(SELECT login_token FROM user_session WHERE login_token=?)", [token])
                     checkToken = cursor.fetchone()[0]
 
@@ -178,53 +171,51 @@ def tweetsAction():
             elif request.method == "DELETE":
                 data = request.json
 
-                if len(data.keys()) == 2 and {"loginToken", "tweetId"} <= data.keys():
-                    tweet_id = data.get("tweetId")
-                    token = data.get("loginToken")
+            if len(data.keys()) == 2 and {"loginToken", "tweetId"} <= data.keys():
+                tweet_id = data.get("tweetId")
+                token = data.get("loginToken")
+                # checks if valid positive integer
+                if not str(tweet_id).isdigit():
+                    return Response("Not a valid id number", mimetype="text/plain", status=400)
+                if token is not None:
+                    cursor.execute("SELECT EXISTS(SELECT login_token FROM user_session WHERE login_token=?)", [token])
+                    token_valid = cursor.fetchone()[0]
 
-                    # checks if integer
-                    if not str(tweet_id).isdigit():
-                        return Response("Not a valid id number", mimetype="text/plain", status=400)
+                    if token_valid == 1:
+                        cursor.execute("SELECT EXISTS(SELECT id from tweet WHERE id=?)", [tweet_id])
+                        checkTweet = cursor.fetchone()[0]
 
-                    if token != None:
-                        cursor.execute("SELECT EXISTS(SELECT login_token FROM user_session WHERE login_token=?)", [token])
-                        token_valid = cursor.fetchone()[0]
+                        if checkTweet == 1:
+                            cursor.execute("SELECT EXISTS (SELECT tweet.id FROM user_session INNER JOIN tweet ON user_session.user_id = tweet.user_id WHERE login_token=? AND tweet.id=?)", [token, tweet_id])
+                            userHasTweet = cursor.fetchone()[0]
 
-                        if token_valid == 1:
-                            cursor.execute("SELECT EXISTS(SELECT id from tweet WHERE id=?)", [tweet_id])
-                            checkTweet = cursor.fetchone()[0]
+                            if userHasTweet == 1:
+                                cursor.execute("DELETE FROM tweet WHERE id=?", [tweet_id])
+                                conn.commit()
+                                return jsonify({
+                                    "message": "you have deleted this tweet"
+                                }), 200
 
-                            if checkTweet == 1:
-                                cursor.execute("SELECT EXISTS (SELECT tweet.id FROM user_session INNER JOIN tweet ON user_session.user_id = tweet.user_id WHERE login_token=? AND tweet.id=?)", [token, tweet_id])
-                                use_tweet = cursor.fetchone()[0]
-
-                                if use_tweet == 1:
-                                    cursor.execute("DELETE FROM tweet WHERE id=?", [tweet_id])
-                                    conn.commit()
-                                    return jsonify({
-                                        "message": "You have deleted your tweet"
-                                    }), 200
-
-                                else:
-                                    return jsonify({
-                                        "message": "you are not permitted to delete this tweet"
-                                    }), 400
                             else:
                                 return jsonify({
-                                    "message": "Invalid tweet id"
+                                    "message": "you are not permitted to delete this tweet"
                                 }), 400
                         else:
                             return jsonify({
-                                "message": "Invalid login token"
+                                "message": "Invalid tweet id"
                             }), 400
                     else:
                         return jsonify({
-                            "message": "login token required"
+                            "message": "Invalid login token"
                         }), 400
                 else:
                     return jsonify({
-                        "message": "invalid request"
+                        "message": "login token required"
                     }), 400
+            else:
+                return jsonify({
+                    "message": "invalid request"
+                }), 400
         else:
             return Response("X-Api-Key not found", mimetype='application/json', status=400)
     except mariadb.OperationalError:
@@ -244,5 +235,4 @@ def tweetsAction():
         if (conn != None):
             conn.rollback()
             conn.close()
-        else:
-            print("No connection!")
+      

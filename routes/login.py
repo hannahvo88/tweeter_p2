@@ -31,7 +31,7 @@ def login_handler():
                         email_valid = cursor.fetchone()[0]
 
                         if email_valid == 1:
-                            cursor.execute("SELECT id AS userId,email,username,bio,birthdate FROM user ""WHERE email=? AND password=?", [email, password])
+                            cursor.execute("SELECT id AS userId, email, username, bio, birthdate FROM user ""WHERE email=? AND password=?", [email, password])
                             # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
                             rv = cursor.fetchall()
@@ -52,7 +52,6 @@ def login_handler():
                                 return jsonify(res), 200
                             else:
                                 return jsonify({
-                            
                                     'message': "email not found"
                                 }),400
                         else:
@@ -68,7 +67,7 @@ def login_handler():
                         username_valid = cursor.fetchone()[0]
 
                         if username_valid == 1:
-                            cursor.execute("SELECT id as userId,email,username,bio,birthdate FROM user ""WHERE username=? AND password=?", [username, password])
+                            cursor.execute("SELECT id AS userId, email, username, bio, birthdate FROM user ""WHERE username=? AND password=?", [username, password])
                             
                             # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
