@@ -235,4 +235,3 @@ def tweets_handler():
         if (conn != None):
             conn.rollback()
             conn.close()
-      

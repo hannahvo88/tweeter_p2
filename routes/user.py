@@ -39,26 +39,27 @@ def api_users():
         cursor = conn.cursor()
         if xApiToken().checkHasToken():
             if request.method == 'GET':
-                rq = request.args
-            
-                if "userId" not in rq:
-                    cursor.execute("SELECT id as userId,email,username FROM user")
+                data = request.args
+                userId = data.get("userId")
+                if "userId" not in data:
+                    cursor.execute("SELECT id, email, username FROM user")
 
                     # this will extract row headers
                     row_headers = [x[0] for x in cursor.description]
                     rv = cursor.fetchall()
                     json_data = []
+
                     for result in rv:
                         json_data.append(dict(zip(row_headers, result)))
 
                     res = json_data
-                elif "userId" in rq:
+                elif "userId" in data:
                 
-                    if rq.get('userId').isdigit():
-                        cursor.execute("SELECT EXISTS(SELECT * FROM user WHERE id=?)", [rq.get('userId')])
-                        check_id_valid = cursor.fetchone()[0]
-                        if check_id_valid == 1:
-                            cursor.execute(f"SELECT id as userId,email,username FROM user WHERE id='{rq.get('userId')}'")
+                    if userId .isdigit():
+                        cursor.execute("SELECT EXISTS(SELECT * FROM user WHERE id=?)", [userId])
+                        id_valid = cursor.fetchone()[0]
+                        if id_valid == 1:
+                            cursor.execute(f"SELECT id, email, username FROM user WHERE id=?",[userId])
 
                             # this will extract row headers
                             row_headers = [x[0] for x in cursor.description]
@@ -166,7 +167,6 @@ def api_users():
                         cursor.execute("SELECT user_id FROM user_session WHERE login_token=?", [token])
 
                         currentUserId = cursor.fetchone()[0]
-                        print("current user ", currentUserId)
 
                         if "email" in data:
                             # check email exists 
@@ -178,7 +178,7 @@ def api_users():
                                     'message': "Email already exists"
                                 }), 400
 
-                            # runs update q
+                            # runs update 
                             cursor.execute("UPDATE user  SET email=? WHERE id=?", [email, currentUserId])
                             conn.commit()
 
@@ -217,7 +217,7 @@ def api_users():
 
                 else:
                     return jsonify({
-                        'message': 'token required'
+                        "message": 'token required'
                     }), 400
             elif request.method == 'DELETE':
                 data = request.json
@@ -288,7 +288,7 @@ def api_users():
 
 
 def use_data(data):
-    print(data)
+
     user = {
         "userId": data[0],
         "email": data[1],

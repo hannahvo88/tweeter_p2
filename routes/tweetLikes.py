@@ -22,9 +22,9 @@ def tweetLikesAction():
         if xApiToken().checkHasToken():
             if request.method == 'GET':
                 data = request.json
-
+                tweetId = data.get("tweetId")
                 if "tweetId" in data:
-                    tweetId = data.get("tweetId")
+                    tweetId 
 
                     # checks if integer
                     if not str(tweetId).isdigit():
