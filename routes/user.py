@@ -41,7 +41,7 @@ def api_users():
             if request.method == 'GET':
                 data = request.args
                 userId = data.get("userId")
-                if "userId" not in data:
+                if "userId" != data:
                     cursor.execute("SELECT id, email, username FROM user")
 
                     # this will extract row headers
@@ -83,6 +83,7 @@ def api_users():
                     }), 400
 
                 return jsonify(res), 200
+
             elif request.method == 'POST':
                 data = request.json
                 email = data.get("email")
@@ -101,7 +102,6 @@ def api_users():
 
                 if not validated['status']:
                     return jsonify({
-                        "status": "error",
                         "message": "Request JSON is missing some required params",
                         "missing": validated['data']
                     })
@@ -113,7 +113,7 @@ def api_users():
 
                     if check_email_exists == 1:
                         return jsonify({
-                            'message': "Email already exists"
+                            "message": "Email already exists"
                         }), 400
 
                     # check username exists
@@ -179,7 +179,7 @@ def api_users():
                                 }), 400
 
                             # runs update 
-                            cursor.execute("UPDATE user  SET email=? WHERE id=?", [email, currentUserId])
+                            cursor.execute("UPDATE user SET email=? WHERE id=?", [email, currentUserId])
                             conn.commit()
 
                         elif "username" in data:
@@ -191,18 +191,18 @@ def api_users():
                                 return jsonify({
                                     'message': "username already exists"
                                 }), 400
-                            cursor.execute("UPDATE user  SET username=? WHERE id=?",[username, currentUserId])
+                            cursor.execute("UPDATE user SET username=? WHERE id=?",[username, currentUserId])
                             conn.commit()
 
                         elif "bio" in data:
-                            cursor.execute("UPDATE user  SET bio=? WHERE id=?",[bio, currentUserId])
+                            cursor.execute("UPDATE user SET bio=? WHERE id=?",[bio, currentUserId])
                             conn.commit()
                         elif "birthdate" in data:
-                            cursor.execute("UPDATE user  SET birthdate=? WHERE id=?",[birthdate, currentUserId])
+                            cursor.execute("UPDATE user SET birthdate=? WHERE id=?",[birthdate, currentUserId])
                             conn.commit()
                     
 
-                        cursor.execute("SELECT id as userId, email, username, bio, birthdate FROM user  WHERE ""id=?", [currentUserId])
+                        cursor.execute("SELECT id, email, username, bio, birthdate FROM user WHERE id=?", [currentUserId])
                         updated = cursor.fetchall()
                         json_data = []
                         row_headers = [x[0] for x in cursor.description]
@@ -225,6 +225,8 @@ def api_users():
                 password = data.get("password")
 
                 if "password" != data:
+                    token
+                    password
                     return jsonify({
                         'message': 'Password is required'
                     }),400
